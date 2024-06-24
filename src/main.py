@@ -1,6 +1,5 @@
 import os
 import threading
-import time
 from dotenv import load_dotenv
 import speech_recognition as sr
 import win32com.client as wc
@@ -25,7 +24,8 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 chat = model.start_chat(history=[])
 
 # Global flag to stop speaking
-stop_speaking = False
+stop_speaking = threading.Event()
+
 
 # Function to listen to user input via microphone and convert it to text
 def listen():
@@ -45,21 +45,21 @@ def listen():
         print(f"Error: {e}")
     return None
 
+
 # Function to convert text to speech with interruption support
 def speak(text):
-    global stop_speaking
     sentences = text.split('.')
     for sentence in sentences:
-        if stop_speaking:
+        if stop_speaking.is_set():
             break
         speaker.Speak(sentence)
     print(f"AI: {' '.join(sentences)}")
-    stop_speaking = False  # Reset the stop speaking flag
+
 
 # Threaded function to handle speaking and allow interruption
 def speak_with_interrupt(text):
     global stop_speaking
-    stop_speaking = False  # Initialize stop_speaking flag to False
+    stop_speaking.clear()  # Clear the stop_speaking flag
 
     def speak_thread():
         speak(text)  # Function to perform speaking in a separate thread
@@ -77,7 +77,7 @@ def speak_with_interrupt(text):
                 audio = recognizer.listen(source, timeout=1)
                 user_input = recognizer.recognize_google(audio)
                 if user_input:  # If user input is detected
-                    stop_speaking = True  # Set the flag to stop speaking
+                    stop_speaking.set()  # Set the flag to stop speaking
                     print(f"User interrupted: {user_input}")
                     t.join()  # Wait for the speak_thread to finish
                     return user_input  # Return the user input
@@ -93,26 +93,33 @@ def speak_with_interrupt(text):
     t.join()  # Ensure the thread finishes if no interruption occurs
     return None
 
+
 def main():
     speak("Hello, How can I help you?")
     while True:
         text = listen()
         if text is None:
             continue
-        if text.lower() == "exit":
+        if "exit" in text.lower():
             speak("Goodbye!")
             break
         response = chat.send_message(text)
-        interruption = speak_with_interrupt(response.text)
-        if interruption:
-            if interruption.lower() == "exit":
-                speak("Goodbye!")
-                break
+        while True:
+            interruption = speak_with_interrupt(response.text)
+            if interruption:
+                if "exit" in interruption.lower():
+                    speak("Goodbye!")
+                    return
+                else:
+                    # Handle the new user input
+                    response = chat.send_message(interruption)
+                    # Speak the new response with possibility of further interruption
+                    interruption = speak_with_interrupt(response.text)
+                    if interruption:
+                        continue  # Handle nested interruptions
             else:
-                response = chat.send_message(interruption)
-                stop_speaking = False
-                speak(response.text)
-            continue
+                break
+
 
 # Check if the script is being run directly
 if __name__ == "__main__":
