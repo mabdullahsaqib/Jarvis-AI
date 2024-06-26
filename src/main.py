@@ -48,7 +48,7 @@ def listen():
 
 # Function to convert text to speech with interruption support
 def speak(text):
-    sentences = text.split('.')
+    sentences = text.split('\n')
     for sentence in sentences:
         if stop_speaking.is_set():
             break
@@ -103,7 +103,9 @@ def main():
         if "exit" in text.lower():
             speak("Goodbye!")
             break
-        response = chat.send_message(text)
+        raw_response = chat.send_message(text)
+        # Remove all asterisks from the response text
+        response = raw_response.text.replace('*', '')
         while True:
             interruption = speak_with_interrupt(response.text)
             if interruption:
@@ -112,7 +114,9 @@ def main():
                     return
                 else:
                     # Handle the new user input
-                    response = chat.send_message(interruption)
+                    raw_response = chat.send_message(interruption)
+                    # Remove all asterisks from the response text
+                    response = raw_response.text.replace('*', '')
                     # Speak the new response with possibility of further interruption
                     interruption = speak_with_interrupt(response.text)
                     if interruption:
