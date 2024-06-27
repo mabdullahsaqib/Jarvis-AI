@@ -17,8 +17,20 @@ speaker.Rate = 3  # Adjust speech rate (1 = normal speed, 2 = double speed, etc.
 # Configure the generative AI model with the API key from environment variables
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
-# Initialize the generative AI model
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Create the model
+generation_config = {
+  "temperature": 1,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_output_tokens": 8192,
+  "response_mime_type": "text/plain",
+}
+
+model = genai.GenerativeModel(
+  model_name="gemini-1.5-flash",
+  generation_config=generation_config,
+  system_instruction= os.getenv('JARVIS_MODEL_CONFIG'),
+)
 
 # Start a chat session with the generative AI model
 chat = model.start_chat(history=[])
@@ -107,7 +119,7 @@ def main():
         # Remove all asterisks from the response text
         response = raw_response.text.replace('*', '')
         while True:
-            interruption = speak_with_interrupt(response.text)
+            interruption = speak_with_interrupt(response)
             if interruption:
                 if "exit" in interruption.lower():
                     speak("Goodbye!")
@@ -118,7 +130,7 @@ def main():
                     # Remove all asterisks from the response text
                     response = raw_response.text.replace('*', '')
                     # Speak the new response with possibility of further interruption
-                    interruption = speak_with_interrupt(response.text)
+                    interruption = speak_with_interrupt(response)
                     if interruption:
                         continue  # Handle nested interruptions
             else:
