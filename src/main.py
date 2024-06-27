@@ -26,10 +26,11 @@ generation_config = {
   "response_mime_type": "text/plain",
 }
 
+# noinspection PyTypeChecker
 model = genai.GenerativeModel(
   model_name="gemini-1.5-flash",
   generation_config=generation_config,
-  system_instruction= os.getenv('JARVIS_MODEL_CONFIG'),
+  system_instruction=os.getenv('JARVIS_MODEL_CONFIG'),
 )
 
 # Start a chat session with the generative AI model
