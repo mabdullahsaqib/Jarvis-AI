@@ -1,14 +1,11 @@
 import os
+import vlc
 import threading
 import requests
 from dotenv import load_dotenv
 import speech_recognition as sr
 import win32com.client as wc
 import google.generativeai as genai
-from pydub import AudioSegment
-from pydub.playback import play
-import simpleaudio as sa
-from tempfile import NamedTemporaryFile
 
 
 # Load environment variables from a .env file
@@ -134,27 +131,9 @@ playback_control = {
 
 # Function to play audio from a URL
 def play_audio(url):
+    p = vlc.MediaPlayer(url)
+    p.play()
 
-    # Download the audio file from the URL
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-        with NamedTemporaryFile(delete=False) as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-    # Load the downloaded audio file using pydub
-    audio = AudioSegment.from_file(f.name)
-
-    playback_control['play'].set()
-    while True:
-        if playback_control['play'].is_set():
-            play(audio)
-            if not playback_control['loop']:
-                break
-        else:
-            playback_control['pause'].wait()
-
-    os.remove(f.name)
 
 # Function to handle music commands
 def handle_music_command(command):
