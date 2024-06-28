@@ -7,7 +7,6 @@ import speech_recognition as sr
 import win32com.client as wc
 import google.generativeai as genai
 
-
 # Load environment variables from a .env file
 load_dotenv()
 
@@ -112,7 +111,7 @@ def speak_with_interrupt(text):
     t.join()  # Ensure the thread finishes if no interruption occurs
     return None
 
-# Function to search for a song on Deezer
+# Function to search for a song on Deezer and return the preview URL
 def search_song(query):
     querystring = {"q": query}
     response = requests.get(DEEZER_API_URL, headers=DEEZER_HEADERS, params=querystring)
@@ -122,46 +121,45 @@ def search_song(query):
             return results['data'][0]['preview']
     return None
 
+# Function to handle music playback using VLC
+def play_audio(url):
+    player = vlc.MediaPlayer(url)
+    player.play()  # Start playback
+
+    while playback_control['play'].is_set():
+        if not playback_control['loop'] and player.get_state() == vlc.State.Ended:
+            break
+
+    player.stop()
+
 # Global variable to control music playback
 playback_control = {
     'play': threading.Event(),
-    'pause': threading.Event(),
     'loop': False
 }
 
-# Function to play audio from a URL
-def play_audio(url):
-    p = vlc.MediaPlayer(url)
-    p.play()
-
-
 # Function to handle music commands
 def handle_music_command(command):
+    global playback_control
     if 'play' in command:
         query = command.replace('play', '').strip()
         preview_url = search_song(query)
         if preview_url:
             speak(f"Playing {query}")
+            playback_control['play'].set()
             playback_thread = threading.Thread(target=play_audio, args=(preview_url,))
             playback_thread.start()
         else:
             speak("I couldn't find the song.")
     elif 'pause' in command:
         playback_control['play'].clear()
-        playback_control['pause'].set()
         speak("Music paused.")
     elif 'resume' in command:
         playback_control['play'].set()
-        playback_control['pause'].clear()
         speak("Resuming music.")
     elif 'loop' in command:
         playback_control['loop'] = not playback_control['loop']
         speak("Looping is " + ("enabled." if playback_control['loop'] else "disabled."))
-    elif 'stop' in command:
-        playback_control['play'].clear()
-        playback_control['pause'].clear()
-        playback_control['loop'] = False
-        speak("Music stopped.")
 
 def main():
     speak("Hello, How can I help you?")
@@ -172,7 +170,7 @@ def main():
         if "exit" in text.lower():
             speak("Goodbye!")
             break
-        elif "play" in text.lower() or "pause" in text.lower() or "resume" in text.lower() or "loop" in text.lower() or "stop" in text.lower():
+        elif any(cmd in text.lower() for cmd in ["play", "pause", "resume", "loop"]):
             handle_music_command(text.lower())
         else:
             raw_response = chat.send_message(text)
