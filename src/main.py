@@ -4,6 +4,8 @@ import music
 import gemini
 from gui import voice_assistant_gui
 import speech_recognition as sr
+from object_recognition import detect_objects
+from sentiment_analysis import analyze_sentiment
 
 # Initialize the speech synthesis engine
 speaker = speech.initialize_speaker()
@@ -25,9 +27,13 @@ def main():
             break
         elif any(cmd in text.lower() for cmd in ["play", "pause", "resume", "loop"]):
             music.handle_music_command(text.lower(), speaker)
+        elif "detect objects" in text.lower():
+            speech.speak("Starting object detection.", speaker)
+            detect_objects()
         else:
+            sentiment, score = analyze_sentiment(text)
+            speech.speak(f"I detected a {sentiment} sentiment with a confidence score of {score:.2f}", speaker)
             raw_response = gemini.chat.send_message(text)
-            # Remove all asterisks from the response text
             response = raw_response.text.replace('*', '')
             while True:
                 voice_assistant_gui.set_speaking()
@@ -39,11 +45,8 @@ def main():
                         voice_assistant_gui.root.quit()  # Close the GUI
                         return
                     else:
-                        # Handle the new user input
                         raw_response = gemini.chat.send_message(interruption)
-                        # Remove all asterisks from the response text
                         response = raw_response.text.replace('*', '')
-                        # Speak the new response with possibility of further interruption
                         voice_assistant_gui.set_speaking()
                         interruption = speech.speak_with_interrupt(response, speaker)
                         voice_assistant_gui.stop_animation()
